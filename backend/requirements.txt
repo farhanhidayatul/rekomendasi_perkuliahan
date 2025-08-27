@@ -1,0 +1,13 @@
+# Web framework
+flask==2.3.2
+waitress==2.1.2
+
+# Data & Machine Learning
+pandas==1.5.3
+numpy==1.24.4
+scikit-learn==1.3.2
+joblib==1.3.2
+
+# Optional: untuk format data lebih ringan
+pyarrow==12.0.1   # supaya bisa simpan cache ke parquet
+fastparquet==2023.8.0

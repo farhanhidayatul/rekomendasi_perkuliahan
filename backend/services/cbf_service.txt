@@ -1,0 +1,102 @@
+# cbf_service.py
+import numpy as np
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+from typing import List, Dict
+
+class CBFSystemNormalizedProximity:
+    def __init__(self, scores_data: List[Dict], passing_data: List[Dict], tolerance: float = 0.1):
+        self.df_scores = pd.DataFrame(scores_data)
+        self.df_passing = pd.DataFrame(passing_data)
+        self.tolerance = tolerance
+
+        # pastikan kolom skor numerik
+        self.score_cols = [c for c in self.df_scores.columns if c != "id_user"]
+        self.df_scores[self.score_cols] = self.df_scores[self.score_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
+
+        # hitung rata-rata skor umum
+        self.df_scores["avg_score"] = self.df_scores[self.score_cols].mean(axis=1)
+        self.feature_matrix = self.df_scores[self.score_cols].to_numpy(dtype=float)
+
+        # pastikan kolom passing grade numerik
+        for col in ["rataan", "min_val", "max_val"]:
+            if col in self.df_passing.columns:
+                self.df_passing[col] = pd.to_numeric(self.df_passing[col], errors="coerce").fillna(0)
+
+    def retrieve(self, user_id: int, top_n: int = 5) -> pd.DataFrame:
+        """Ambil similarity antar user untuk satu user_id."""
+        if user_id not in self.df_scores["id_user"].values:
+            return pd.DataFrame()
+        idx = self.df_scores.index[self.df_scores["id_user"] == user_id][0]
+
+        user_vector = self.feature_matrix[idx].reshape(1, -1)
+        similarities = cosine_similarity(user_vector, self.feature_matrix).flatten()
+        similarities[idx] = -1  # hindari dirinya sendiri
+        similarities = np.clip(similarities, 0, 1)
+
+        top_indices = similarities.argsort()[::-1][:top_n]
+        sim_df = self.df_scores.loc[top_indices, ["id_user", "avg_score"]].copy()
+        sim_df["similarity"] = similarities[top_indices]
+        sim_df["query_user_id"] = user_id
+
+        return sim_df
+
+    def recommend_prodi(self, user_id: int, top_n: int = 5, weight_tps: float = 0.4, weight_mapel: float = 0.6) -> pd.DataFrame:
+        """Rekomendasi prodi untuk satu user dengan pembobotan TPS & Mapel."""
+        if user_id not in self.df_scores["id_user"].values:
+            return pd.DataFrame()
+
+        # Ambil data user
+        user_row = self.df_scores[self.df_scores["id_user"] == user_id].iloc[0]
+
+        # Pisahkan kolom TPS vs Mapel
+        tps_cols = [c for c in self.score_cols if "tps" in c.lower()]
+        mapel_cols = [c for c in self.score_cols if c not in tps_cols]
+
+        tps_score = user_row[tps_cols].mean() if tps_cols else 0
+        mapel_score = user_row[mapel_cols].mean() if mapel_cols else 0
+        user_avg_weighted = (weight_tps * tps_score) + (weight_mapel * mapel_score)
+
+        # Buat matriks prodi (fitur yang cocok dengan skor user)
+        prodi_feature_cols = [c for c in self.df_passing.columns if c in self.score_cols]
+        if not prodi_feature_cols:
+            return pd.DataFrame()
+        prodi_matrix = self.df_passing[prodi_feature_cols].to_numpy(dtype=float)
+
+        # Hitung similarity user ↔ prodi
+        user_vector = user_row[self.score_cols].to_numpy(dtype=float).reshape(1, -1)
+        similarities = cosine_similarity(user_vector, prodi_matrix).flatten()
+
+        df = self.df_passing.copy()
+        df["similarity"] = similarities
+        df["user_id"] = user_id
+        df["user_avg_score"] = user_avg_weighted
+
+        # Filter passing grade
+        df = df[df["user_avg_score"] >= df["min_val"]]
+        df = df[
+            (df["user_avg_score"] >= df["rataan"] * (1 - self.tolerance)) &
+            (df["user_avg_score"] <= df["rataan"] * (1 + self.tolerance))
+        ]
+
+        if df.empty:
+            return pd.DataFrame()
+
+        # Normalisasi relatif terhadap min-max passing grade
+        df["score_rel"] = (df["user_avg_score"] - df["min_val"]) / (df["max_val"] - df["min_val"])
+        df["score_rel"] = df["score_rel"].clip(0, 1)
+
+        # Skor akhir = similarity × passing grade × skor relatif
+        df["score"] = df["similarity"] * df["rataan"] * df["score_rel"]
+
+        # Normalisasi ke 0–100
+        max_score = df["score"].max()
+        df["recommendation_score"] = (df["score"] / max_score * 100).round(2) if max_score > 0 else 0
+
+        # Tambahkan probabilitas diterima (pakai sigmoid scaling)
+        df["acceptance_probability"] = (1 / (1 + np.exp(-0.1 * (df["recommendation_score"] - 50)))).round(4)
+        df["acceptance_probability"] = (df["acceptance_probability"] * 100).round(2)
+
+        # Urutkan hasil
+        df = df.sort_values(by="recommendation_score", ascending=False).reset_index(drop=True)
+        return df.head(top_n)
