@@ -20,7 +20,7 @@ data_major = data_major[["id_university", "type", "major_name", "capacity"]]
 data_universitas = pd.read_csv(file_path_universitas)
 
 data_parsing_grade = pd.read_csv(file_path_parsing_grade)
-data_parsing_grade = data_parsing_grade[["NAMA PRODI", "RATAAN", "S.BAKU","MIN", "MAX"]]
+data_parsing_grade = data_parsing_grade[["NAMA PRODI", "RATAAN", "type","MIN", "MAX"]]
 
 # Hapus kolom Unnamed (jika ada)
 for df in [data_humanities, data_science, data_major, data_universitas, data_parsing_grade]:

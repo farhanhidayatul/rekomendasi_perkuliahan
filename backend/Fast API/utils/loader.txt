@@ -11,12 +11,12 @@ def load_data():
         rows = cursor.fetchall()
         return pd.DataFrame(rows)
 
-    df_science = fetch_df("SELECT * FROM science_scores")
-    df_humanities = fetch_df("SELECT * FROM humanities_scores")
-    df_passing = fetch_df("SELECT * FROM passing_grade")
+    science_data = fetch_df("SELECT * FROM science_scores")
+    humanities_data = fetch_df("SELECT * FROM humanities_scores")
+    passing_data = fetch_df("SELECT * FROM passing_grade")
 
     cursor.close()
     conn.close()
-    return df_science, df_humanities, df_passing
+    return science_data, humanities_data, passing_data
 
 

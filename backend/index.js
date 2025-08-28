@@ -118,7 +118,7 @@ app.get("/api/recommendations/:user_id", async (req, res) => {
 // =========================================================
 // 3. Proxy ke FastAPI untuk generate rekomendasi
 // =========================================================
-app.post("/api/recommendations", async (req, res) => {
+app.post("/recommendations", async (req, res) => {
   try {
     const response = await axios.post("http://127.0.0.1:8000/recommendations", req.body, {
       headers: { "Content-Type": "application/json" },
@@ -154,7 +154,7 @@ app.post("/api/refresh", async (req, res) => {
 // =========================================================
 app.get("/api/recommendations/refresh/:user_id", async (req, res) => {
   const { user_id } = req.params;
-  const { method = "cbf", track = "science", top_n = 20 } = req.query;
+  const { method, track, top_n} = req.query;
 
   try {
     const url = `http://127.0.0.1:8000/recommend/temp/${user_id}?method=${method}&track=${track}&top_n=${top_n}`;

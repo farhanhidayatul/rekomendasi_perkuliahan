@@ -26,7 +26,7 @@ class CBRSystem:
             if col in self.df_passing.columns:
                 self.df_passing[col] = pd.to_numeric(self.df_passing[col], errors="coerce").fillna(0)
 
-    def retrieve(self, user_id: int, top_n: int = 5) -> pd.DataFrame:
+    def retrieve(self, user_id: int, top_n: int) -> pd.DataFrame:
         """Cari top_n user paling mirip dengan user_id berdasarkan cosine similarity."""
         if user_id not in self.df_scores["id_user"].values:
             return pd.DataFrame()
@@ -78,7 +78,7 @@ class CBRSystem:
         return merged
 
 
-def get_cbr_recommendation(user_id: int, track: str, scores: List[Dict], passing: List[Dict], top_n: int = 5):
+def get_cbr_recommendation(user_id: int, track: str, scores: List[Dict], passing: List[Dict], top_n: int):
     # --- pastikan passing list, parse JSON jika string ---
     if isinstance(passing, str):
         try:

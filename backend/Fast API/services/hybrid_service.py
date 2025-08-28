@@ -7,7 +7,7 @@ def get_hybrid_recommendation(user_id: int,
                               track: str,
                               scores: List[Dict],
                               passing: List[Dict],
-                              top_n: int = 5,
+                              top_n: int,
                               weight_cbf: float = 0.5,
                               weight_cbr: float = 0.5) -> List[Dict]:
     """
